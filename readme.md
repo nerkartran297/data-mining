@@ -101,48 +101,132 @@ Apriori là thuật toán tìm **frequent itemsets** và **association rules** t
 
 #### Bước 1: Tiền xử lý dữ liệu
 
-```python
-# Chuyển đổi dữ liệu thành transaction matrix
-# VD: DataFrame → Binary Matrix
-TransactionID | Product  →  Bread | Milk | Butter
-T001         | Bread       1    | 0    | 0
-T001         | Milk        1    | 1    | 0
-T002         | Butter      0    | 0    | 1
+**🔸 Ví dụ thực tế từ file `data_apriori_to_OHE.csv`:**
+
+```
+Dữ liệu gốc (giao dịch):
+Mã hóa đơn | Mã hàng
+o1        | i1, i2, i3
+o2        | i2, i3, i4
+o3        | i2, i3, i4
+o4        | i1, i2, i3
+o5        | i3, i4
+
+Sau khi chuyển đổi thành Binary Matrix:
+     | i1 | i2 | i3 | i4
+-----|----|----|----|----|
+o1   | 1  | 1  | 1  | 0
+o2   | 0  | 1  | 1  | 1
+o3   | 0  | 1  | 1  | 1
+o4   | 1  | 1  | 1  | 0
+o5   | 0  | 0  | 1  | 1
+```
+
+**🔸 Ví dụ từ file `data_apriori.csv` (dữ liệu đã ở dạng binary):**
+
+```
+     | i1 | i2 | i3 | i4
+-----|----|----|----|----|
+o1   | 1  | 1  | 1  | 0
+o2   | 0  | 1  | 1  | 1
+o3   | 0  | 1  | 1  | 1
+o4   | 1  | 1  | 1  | 0
+o5   | 0  | 0  | 1  | 1
 ```
 
 #### Bước 2: Tìm Frequent 1-itemsets (L₁)
 
 ```python
-# Đếm frequency của từng item
-support(Bread) = 3/4 = 0.75 ≥ min_support → Keep
-support(Milk) = 2/4 = 0.5 ≥ min_support → Keep
-support(Butter) = 1/4 = 0.25 < min_support → Remove
+# Đếm frequency của từng item (với min_support = 0.4)
+Tổng số giao dịch: 5
+
+support(i1) = 2/5 = 0.4 ≥ 0.4 → Keep
+support(i2) = 3/5 = 0.6 ≥ 0.4 → Keep
+support(i3) = 5/5 = 1.0 ≥ 0.4 → Keep
+support(i4) = 3/5 = 0.6 ≥ 0.4 → Keep
+
+L₁ = {i1, i2, i3, i4}  # Tất cả đều frequent
 ```
 
 #### Bước 3: Sinh Candidate 2-itemsets (C₂)
 
 ```python
 # Kết hợp các frequent 1-itemsets
-L₁ = {Bread, Milk}
-C₂ = {Bread,Milk}
+L₁ = {i1, i2, i3, i4}
+C₂ = {(i1,i2), (i1,i3), (i1,i4), (i2,i3), (i2,i4), (i3,i4)}
 ```
 
 #### Bước 4: Tính Support và lọc → L₂
 
 ```python
-support(Bread,Milk) = 2/4 = 0.5 ≥ min_support → Keep
-L₂ = {Bread,Milk}
+# Đếm support của từng 2-itemset
+support(i1,i2) = 2/5 = 0.4 ≥ 0.4 → Keep (o1,o4)
+support(i1,i3) = 2/5 = 0.4 ≥ 0.4 → Keep (o1,o4)
+support(i1,i4) = 0/5 = 0.0 < 0.4 → Remove
+support(i2,i3) = 3/5 = 0.6 ≥ 0.4 → Keep (o1,o2,o3,o4)
+support(i2,i4) = 2/5 = 0.4 ≥ 0.4 → Keep (o2,o3)
+support(i3,i4) = 3/5 = 0.6 ≥ 0.4 → Keep (o2,o3,o5)
+
+L₂ = {(i1,i2), (i1,i3), (i2,i3), (i2,i4), (i3,i4)}
 ```
 
-#### Bước 5: Sinh Association Rules
+#### Bước 5: Sinh Candidate 3-itemsets (C₃)
 
 ```python
-# Từ itemset {Bread,Milk}
-Rule 1: Bread → Milk
-confidence = support(Bread,Milk)/support(Bread) = 0.5/0.75 = 0.67
+# Kết hợp các 2-itemsets có chung 1 item
+C₃ = {(i1,i2,i3), (i2,i3,i4)}
 
-Rule 2: Milk → Bread
-confidence = support(Bread,Milk)/support(Milk) = 0.5/0.5 = 1.0
+support(i1,i2,i3) = 2/5 = 0.4 ≥ 0.4 → Keep (o1,o4)
+support(i2,i3,i4) = 2/5 = 0.4 ≥ 0.4 → Keep (o2,o3)
+
+L₃ = {(i1,i2,i3), (i2,i3,i4)}
+```
+
+#### Bước 6: Thử sinh 4-itemsets
+
+```python
+C₄ = {(i1,i2,i3,i4)}
+support(i1,i2,i3,i4) = 0/5 = 0.0 < 0.4 → Remove
+
+L₄ = {} → Dừng thuật toán
+```
+
+#### Bước 7: Sinh Association Rules (với min_confidence = 0.6)
+
+```python
+# Từ frequent itemsets, sinh các luật:
+
+Từ (i1,i2,i3):
+- i1 → (i2,i3): conf = 0.4/0.4 = 1.0 ≥ 0.6 ✓
+- i2 → (i1,i3): conf = 0.4/0.6 = 0.67 ≥ 0.6 ✓
+- i3 → (i1,i2): conf = 0.4/1.0 = 0.4 < 0.6 ✗
+- (i1,i2) → i3: conf = 0.4/0.4 = 1.0 ≥ 0.6 ✓
+
+Từ (i2,i3,i4):
+- i2 → (i3,i4): conf = 0.4/0.6 = 0.67 ≥ 0.6 ✓
+- i3 → (i2,i4): conf = 0.4/1.0 = 0.4 < 0.6 ✗
+- i4 → (i2,i3): conf = 0.4/0.6 = 0.67 ≥ 0.6 ✓
+```
+
+### 🎯 **KẾT QUẢ CUỐI CÙNG APRIORI:**
+
+```
+📊 FREQUENT ITEMSETS:
+- 1-itemsets: {i1}, {i2}, {i3}, {i4}
+- 2-itemsets: {i1,i2}, {i1,i3}, {i2,i3}, {i2,i4}, {i3,i4}
+- 3-itemsets: {i1,i2,i3}, {i2,i3,i4}
+
+🎯 ASSOCIATION RULES (confidence ≥ 0.6):
+1. i1 → {i2,i3} (conf: 1.0, lift: 1.67)
+2. i2 → {i1,i3} (conf: 0.67, lift: 1.67)
+3. {i1,i2} → i3 (conf: 1.0, lift: 1.0)
+4. i2 → {i3,i4} (conf: 0.67, lift: 1.11)
+5. i4 → {i2,i3} (conf: 0.67, lift: 1.11)
+
+💡 INSIGHTS:
+- Item i3 xuất hiện trong tất cả giao dịch (support = 1.0)
+- Nếu mua i1 thì chắc chắn sẽ mua cả i2 và i3
+- Items i2, i3, i4 thường xuất hiện cùng nhau
 ```
 
 ### Các bước thuật toán:
@@ -299,62 +383,124 @@ BND_R(X) = R*(X) - R*(X)
 
 #### Bước 1: Xây dựng Information Table
 
+**🔸 Ví dụ thực tế từ file `data_rough_set.csv`:**
+
 ```
-| ID | Toán | Lý | Hóa | Kết quả |
-|----|------|----|----|---------|
-| 1  | 8    | 9  | 7  | Giỏi    |
-| 2  | 6    | 7  | 8  | Giỏi    |
-| 3  | 4    | 5  | 6  | Yếu     |
-| 4  | 7    | 6  | 7  | ?       |
+| ID | Kích thước | Màu sắc | Hình dạng   | Lớp |
+|----|------------|---------|-------------|-----|
+| 1  | Vừa        | Xanh    | Viên gạch   | A   |
+| 2  | Nhỏ        | Đỏ      | Hình nêm    | B   |
+| 3  | Nhỏ        | Đỏ      | Hình cầu    | A   |
+| 4  | Lớn        | Đỏ      | Hình nêm    | B   |
+| 5  | Lớn        | Lục     | Hình trụ    | A   |
+| 6  | Lớn        | Đỏ      | Hình trụ    | B   |
+| 7  | Lớn        | Lục     | Hình cầu    | A   |
 ```
 
 #### Bước 2: Tạo Equivalence Classes
 
 ```python
-# Nhóm theo thuộc tính điều kiện [Toán, Lý]
-Class 1: {ID1} → [8,9] → Giỏi
-Class 2: {ID2} → [6,7] → Giỏi
-Class 3: {ID3} → [4,5] → Yếu
-Class 4: {ID4} → [7,6] → ?
+# Phân tích cho Target = "A" với thuộc tính điều kiện [Kích thước, Màu sắc]
+
+Nhóm theo [Kích thước, Màu sắc]:
+E1: {1} → [Vừa, Xanh] → {A}
+E2: {2,3} → [Nhỏ, Đỏ] → {B, A}  # Hỗn hợp!
+E3: {4,6} → [Lớn, Đỏ] → {B, B}
+E4: {5,7} → [Lớn, Lục] → {A, A}
 ```
 
 #### Bước 3: Tính Lower Approximation
 
 ```python
-# Tìm classes chắc chắn thuộc target "Giỏi"
-Target_set = {ID1, ID2}  # Các object có Kết quả = "Giỏi"
+# Tìm classes chắc chắn thuộc target "A"
+Target_set = {1, 3, 5, 7}  # Các object có Lớp = "A"
+
 Lower_Approx = {}  # Chỉ những class hoàn toàn trong target
-# Class 1: {ID1} ⊆ {ID1,ID2} → Thêm vào Lower
-# Class 2: {ID2} ⊆ {ID1,ID2} → Thêm vào Lower
-Lower_Approx = {ID1, ID2}
+# E1: {1} → tất cả thuộc "A" → Thêm vào Lower
+# E2: {2,3} → có object 2 thuộc "B" → Không thêm
+# E3: {4,6} → tất cả thuộc "B" → Không thêm
+# E4: {5,7} → tất cả thuộc "A" → Thêm vào Lower
+
+Lower_Approx = {1, 5, 7}
 ```
 
 #### Bước 4: Tính Upper Approximation
 
 ```python
-# Tìm classes có giao khác rỗng với target
+# Tìm classes có giao khác rỗng với target "A"
 Upper_Approx = {}
-# Class 1: {ID1} ∩ {ID1,ID2} ≠ ∅ → Thêm vào Upper
-# Class 2: {ID2} ∩ {ID1,ID2} ≠ ∅ → Thêm vào Upper
-Upper_Approx = {ID1, ID2}
+# E1: {1} ∩ {1,3,5,7} = {1} ≠ ∅ → Thêm vào Upper
+# E2: {2,3} ∩ {1,3,5,7} = {3} ≠ ∅ → Thêm vào Upper
+# E3: {4,6} ∩ {1,3,5,7} = {} = ∅ → Không thêm
+# E4: {5,7} ∩ {1,3,5,7} = {5,7} ≠ ∅ → Thêm vào Upper
+
+Upper_Approx = {1, 2, 3, 5, 7}
 ```
 
 #### Bước 5: Tính Accuracy và Dependency
 
 ```python
-Accuracy = |Lower_Approx| / |Upper_Approx| = 2/2 = 1.0
-Dependency = |Lower_Approx| / |Total_Objects| = 2/4 = 0.5
+Accuracy = |Lower_Approx| / |Upper_Approx| = 3/5 = 0.6
+Dependency = |Lower_Approx| / |Total_Objects| = 3/7 = 0.43
+
+Boundary_Region = Upper_Approx - Lower_Approx = {2, 3}
 ```
 
 #### Bước 6: Tìm Reducts
 
 ```python
-# Test từng subset của attributes
-Full_dependency = dependency([Toán,Lý,Hóa], Kết quả) = 0.75
-Test: dependency([Toán,Lý], Kết quả) = 0.5 ≠ 0.75
-Test: dependency([Toán,Hóa], Kết quả) = 0.5 ≠ 0.75
-Test: dependency([Lý,Hóa], Kết quả) = 0.5 ≠ 0.75
-→ Không có reduct, cần tất cả 3 thuộc tính
+# Test từng subset của attributes với full dependency = 3/7 = 0.43
+
+Test [Kích thước]:
+- Vừa: {1} → A
+- Nhỏ: {2,3} → B,A
+- Lớn: {4,5,6,7} → B,A,B,A
+dependency = 1/7 = 0.14 ≠ 0.43
+
+Test [Màu sắc]:
+- Xanh: {1} → A
+- Đỏ: {2,3,4,6} → B,A,B,B
+- Lục: {5,7} → A,A
+dependency = 3/7 = 0.43 = 0.43 ✓
+
+Test [Hình dạng]:
+- Viên gạch: {1} → A
+- Hình nêm: {2,4} → B,B
+- Hình cầu: {3,7} → A,A
+- Hình trụ: {5,6} → A,B
+dependency = 4/7 = 0.57 > 0.43
+
+→ Reduct tối thiểu: {Màu sắc}
+```
+
+### 🎯 **KẾT QUẢ CUỐI CÙNG ROUGH SET:**
+
+```
+📊 PHÂN TÍCH CHO LỚP "A":
+
+🎯 Lower Approximation: {1, 5, 7}
+   - Object 1: [Vừa, Xanh, Viên gạch] → Chắc chắn A
+   - Object 5: [Lớn, Lục, Hình trụ] → Chắc chắn A
+   - Object 7: [Lớn, Lục, Hình cầu] → Chắc chắn A
+
+🎯 Upper Approximation: {1, 2, 3, 5, 7}
+   - Bao gồm cả những object có thể thuộc A
+
+🎯 Boundary Region: {2, 3}
+   - Object 2,3: [Nhỏ, Đỏ] → Không chắc chắn
+
+📊 ĐỘ ĐO CHẤT LƯỢNG:
+- Accuracy: 0.6 (60% objects trong upper đã được xác định)
+- Dependency: 0.43 (43% objects có thể phân loại chắc chắn)
+
+🔧 REDUCTS:
+- Reduct tối thiểu: {Màu sắc}
+- Core: {Màu sắc} (thuộc tính không thể thiếu)
+
+💡 INSIGHTS:
+- Màu sắc là thuộc tính quan trọng nhất để phân biệt lớp A
+- Objects có màu Lục luôn thuộc lớp A
+- Objects có màu Đỏ cần thêm thông tin để phân loại
 ```
 
 ### Reduct và Core:
@@ -446,66 +592,171 @@ Gain(S,A) = Entropy(S) - ∑((|S_v|/|S|) × Entropy(S_v))
 
 #### Bước 1: Chuẩn bị dữ liệu
 
+**🔸 Ví dụ thực tế từ file `data_tree.csv` (Tennis Dataset):**
+
 ```
-| Age | Income | Gender | Buy |
-|-----|--------|--------|-----|
-| 25  | 30000  | Male   | Yes |
-| 30  | 45000  | Female | Yes |
-| 35  | 55000  | Male   | No  |
-| 28  | 38000  | Female | Yes |
+| ID  | Outlook  | Temperature | Humidity | Wind   | Play ball |
+|-----|----------|-------------|----------|--------|-----------|
+| D1  | Sunny    | Hot         | High     | Weak   | No        |
+| D2  | Sunny    | Hot         | High     | Strong | No        |
+| D3  | Overcast | Hot         | High     | Weak   | Yes       |
+| D4  | Rainy    | Mild        | High     | Weak   | Yes       |
+| D5  | Rainy    | Cool        | Normal   | Weak   | Yes       |
+| D6  | Rainy    | Cool        | Normal   | Strong | No        |
+| D7  | Overcast | Cool        | Normal   | Strong | Yes       |
+| D8  | Sunny    | Mild        | High     | Weak   | No        |
+| D9  | Sunny    | Cool        | Normal   | Weak   | Yes       |
+| D10 | Rainy    | Mild        | Normal   | Weak   | Yes       |
+| D11 | Sunny    | Mild        | Normal   | Strong | Yes       |
+| D12 | Overcast | Mild        | High     | Strong | Yes       |
+| D13 | Overcast | Hot         | Normal   | Weak   | Yes       |
+| D14 | Rainy    | Mild        | High     | Strong | No        |
 ```
 
 #### Bước 2: Tính Entropy của tập gốc
 
 ```python
-Total = 4, Yes = 3, No = 1
-Entropy(S) = -[3/4 × log₂(3/4) + 1/4 × log₂(1/4)]
-           = -[0.75 × (-0.415) + 0.25 × (-2)]
-           = 0.811
+Total = 14, Yes = 9, No = 5
+p(Yes) = 9/14 = 0.643
+p(No) = 5/14 = 0.357
+
+Entropy(S) = -[9/14 × log₂(9/14) + 5/14 × log₂(5/14)]
+           = -[0.643 × (-0.637) + 0.357 × (-1.485)]
+           = 0.940
 ```
 
 #### Bước 3: Tính Information Gain cho từng thuộc tính
 
-**Thuộc tính Age:**
+**Thuộc tính Outlook:**
 
 ```python
-# Chia theo Age
-Age=25: {Yes} → Entropy = 0
-Age=30: {Yes} → Entropy = 0
-Age=35: {No} → Entropy = 0
-Age=28: {Yes} → Entropy = 0
+# Chia theo Outlook
+Sunny: {D1,D2,D8,D9,D11} → 2 Yes, 3 No → Entropy = 0.971
+Overcast: {D3,D7,D12,D13} → 4 Yes, 0 No → Entropy = 0
+Rainy: {D4,D5,D6,D10,D14} → 3 Yes, 2 No → Entropy = 0.971
 
-Gain(Age) = 0.811 - [1/4×0 + 1/4×0 + 1/4×0 + 1/4×0] = 0.811
+Gain(Outlook) = 0.940 - [5/14×0.971 + 4/14×0 + 5/14×0.971] = 0.246
 ```
 
-**Thuộc tính Income:**
+**Thuộc tính Temperature:**
 
 ```python
-# Nhóm theo khoảng income
-Low(≤35000): {Yes} → Entropy = 0
-High(>35000): {Yes,Yes,No} → Entropy = 0.918
+# Chia theo Temperature
+Hot: {D1,D2,D3,D13} → 2 Yes, 2 No → Entropy = 1.0
+Mild: {D4,D8,D10,D11,D12,D14} → 4 Yes, 2 No → Entropy = 0.918
+Cool: {D5,D6,D7,D9} → 3 Yes, 1 No → Entropy = 0.811
 
-Gain(Income) = 0.811 - [1/4×0 + 3/4×0.918] = 0.122
+Gain(Temperature) = 0.940 - [4/14×1.0 + 6/14×0.918 + 4/14×0.811] = 0.029
+```
+
+**Thuộc tính Humidity:**
+
+```python
+# Chia theo Humidity
+High: {D1,D2,D3,D4,D8,D12,D14} → 3 Yes, 4 No → Entropy = 0.985
+Normal: {D5,D6,D7,D9,D10,D11,D13} → 6 Yes, 1 No → Entropy = 0.592
+
+Gain(Humidity) = 0.940 - [7/14×0.985 + 7/14×0.592] = 0.151
+```
+
+**Thuộc tính Wind:**
+
+```python
+# Chia theo Wind
+Weak: {D1,D3,D4,D5,D8,D9,D10,D13} → 6 Yes, 2 No → Entropy = 0.811
+Strong: {D2,D6,D7,D11,D12,D14} → 3 Yes, 3 No → Entropy = 1.0
+
+Gain(Wind) = 0.940 - [8/14×0.811 + 6/14×1.0] = 0.048
 ```
 
 #### Bước 4: Chọn thuộc tính tốt nhất
 
 ```python
-Gain(Age) = 0.811 (cao nhất)
-Gain(Income) = 0.122
-Gain(Gender) = 0.311
+Gain(Outlook) = 0.246 (cao nhất)
+Gain(Humidity) = 0.151
+Gain(Wind) = 0.048
+Gain(Temperature) = 0.029
 
-→ Chọn Age làm root node
+→ Chọn Outlook làm root node
 ```
 
 #### Bước 5: Xây dựng cây đệ quy
 
 ```
-       Age
-    ┌─────┼─────┐
-   25    30    35    28
-    │     │     │     │
-   Yes   Yes   No    Yes
+                    Outlook
+            ┌─────────┼─────────┐
+         Sunny    Overcast    Rainy
+            │         │         │
+          [?]       Yes       [?]
+
+# Sunny branch cần chia tiếp (2 Yes, 3 No)
+# Rainy branch cần chia tiếp (3 Yes, 2 No)
+```
+
+**Chia nhánh Sunny:** (D1,D2,D8,D9,D11)
+
+```python
+# Chỉ xét subset Sunny
+Gain(Humidity) = 0.971 - [4/5×0 + 1/5×0] = 0.971
+Gain(Wind) = 0.971 - [3/5×0 + 2/5×0] = 0.971
+→ Chọn Humidity (hoặc Wind, cả hai đều perfect)
+
+Sunny → Humidity:
+├── High: No (D1,D2,D8)
+└── Normal: Yes (D9,D11)
+```
+
+**Chia nhánh Rainy:** (D4,D5,D6,D10,D14)
+
+```python
+# Chỉ xét subset Rainy
+Gain(Wind) = 0.971 - [3/5×0 + 2/5×0] = 0.971
+→ Chọn Wind
+
+Rainy → Wind:
+├── Weak: Yes (D4,D5,D10)
+└── Strong: No (D6,D14)
+```
+
+### 🎯 **CÂY QUYẾT ĐỊNH HOÀN CHỈNH:**
+
+```
+                    Outlook
+            ┌─────────┼─────────┐
+         Sunny    Overcast    Rainy
+            │         │         │
+        Humidity     Yes      Wind
+        ┌───┴───┐           ┌───┴───┐
+      High   Normal      Weak    Strong
+        │       │         │        │
+       No      Yes       Yes       No
+```
+
+### 🎯 **KẾT QUẢ CUỐI CÙNG DECISION TREE:**
+
+```
+📊 CÁC LUẬT RÚT RA:
+
+1. IF Outlook = Overcast THEN Play = Yes
+2. IF Outlook = Sunny AND Humidity = High THEN Play = No
+3. IF Outlook = Sunny AND Humidity = Normal THEN Play = Yes
+4. IF Outlook = Rainy AND Wind = Weak THEN Play = Yes
+5. IF Outlook = Rainy AND Wind = Strong THEN Play = No
+
+📈 ĐIỂM SỐ CÁC THUỘC TÍNH:
+- Outlook: 0.246 (quan trọng nhất)
+- Humidity: 0.151 (quan trọng thứ 2)
+- Wind: 0.048 (quan trọng thứ 3)
+- Temperature: 0.029 (ít quan trọng nhất)
+
+🎯 ACCURACY: 100% (14/14 cases phân loại đúng)
+
+💡 INSIGHTS:
+- Outlook là yếu tố quyết định chính
+- Khi Overcast → luôn chơi tennis
+- Khi Sunny → phụ thuộc độ ẩm
+- Khi Rainy → phụ thuộc gió
+- Temperature không ảnh hưởng nhiều đến quyết định
 ```
 
 ### Pseudocode:
@@ -648,6 +899,143 @@ P(x₁,x₂,...,xₙ|C) = P(x₁|C) × P(x₂|C) × ... × P(xₙ|C)
 
 ### Các biến thể:
 
+### 📊 VÍ DỤ CHI TIẾT VỚI DỮ LIỆU THỰC TẾ:
+
+**🔸 Dữ liệu từ file `data_nb.csv` (Tennis Dataset):**
+
+```
+Dự đoán: Có chơi tennis hay không dựa trên thời tiết
+Target: Play ball (Yes/No)
+Features: Outlook, Temperature, Humidity, Wind
+```
+
+#### Bước 1: Chuẩn bị dữ liệu và tính Prior
+
+```python
+Total samples: 14
+P(Yes) = 9/14 = 0.643
+P(No) = 5/14 = 0.357
+```
+
+#### Bước 2: Tính Likelihood cho từng feature
+
+**Feature: Outlook**
+
+```python
+# P(Outlook|Play=Yes)
+P(Sunny|Yes) = 2/9 = 0.222      # D9,D11
+P(Overcast|Yes) = 4/9 = 0.444   # D3,D7,D12,D13
+P(Rainy|Yes) = 3/9 = 0.333      # D4,D5,D10
+
+# P(Outlook|Play=No)
+P(Sunny|No) = 3/5 = 0.600       # D1,D2,D8
+P(Overcast|No) = 0/5 = 0.000    # Không có
+P(Rainy|No) = 2/5 = 0.400       # D6,D14
+```
+
+**Feature: Temperature**
+
+```python
+# P(Temperature|Play=Yes)
+P(Hot|Yes) = 2/9 = 0.222        # D3,D13
+P(Mild|Yes) = 4/9 = 0.444       # D4,D10,D11,D12
+P(Cool|Yes) = 3/9 = 0.333       # D5,D7,D9
+
+# P(Temperature|Play=No)
+P(Hot|No) = 2/5 = 0.400         # D1,D2
+P(Mild|No) = 2/5 = 0.400        # D8,D14
+P(Cool|No) = 1/5 = 0.200        # D6
+```
+
+**Feature: Humidity**
+
+```python
+# P(Humidity|Play=Yes)
+P(High|Yes) = 3/9 = 0.333       # D3,D4,D12
+P(Normal|Yes) = 6/9 = 0.667     # D5,D7,D9,D10,D11,D13
+
+# P(Humidity|Play=No)
+P(High|No) = 4/5 = 0.800        # D1,D2,D8,D14
+P(Normal|No) = 1/5 = 0.200      # D6
+```
+
+**Feature: Wind**
+
+```python
+# P(Wind|Play=Yes)
+P(Weak|Yes) = 6/9 = 0.667       # D3,D4,D5,D9,D10,D13
+P(Strong|Yes) = 3/9 = 0.333     # D7,D11,D12
+
+# P(Wind|Play=No)
+P(Weak|No) = 2/5 = 0.400        # D1,D8
+P(Strong|No) = 3/5 = 0.600      # D2,D6,D14
+```
+
+#### Bước 3: Dự đoán cho sample mới
+
+**Test case: [Outlook=Sunny, Temperature=Cool, Humidity=High, Wind=Strong]**
+
+```python
+# Tính P(Yes|features)
+P(Yes|features) = P(Yes) × P(Sunny|Yes) × P(Cool|Yes) × P(High|Yes) × P(Strong|Yes)
+                = 0.643 × 0.222 × 0.333 × 0.333 × 0.333
+                = 0.006
+
+# Tính P(No|features)
+P(No|features) = P(No) × P(Sunny|No) × P(Cool|No) × P(High|No) × P(Strong|No)
+               = 0.357 × 0.600 × 0.200 × 0.800 × 0.600
+               = 0.021
+
+# Kết luận: P(No) > P(Yes) → Prediction: No
+```
+
+### 🎯 **KẾT QUẢ CUỐI CÙNG NAIVE BAYES:**
+
+```
+📊 BẢNG XÁC SUẤT LIKELIHOOD:
+
+🌤️ OUTLOOK:
+       | Yes     | No
+-------|---------|--------
+Sunny  | 0.222   | 0.600
+Overcast| 0.444  | 0.000
+Rainy  | 0.333   | 0.400
+
+🌡️ TEMPERATURE:
+       | Yes     | No
+-------|---------|--------
+Hot    | 0.222   | 0.400
+Mild   | 0.444   | 0.400
+Cool   | 0.333   | 0.200
+
+💧 HUMIDITY:
+       | Yes     | No
+-------|---------|--------
+High   | 0.333   | 0.800
+Normal | 0.667   | 0.200
+
+💨 WIND:
+       | Yes     | No
+-------|---------|--------
+Weak   | 0.667   | 0.400
+Strong | 0.333   | 0.600
+
+🎯 PRIOR PROBABILITIES:
+- P(Yes) = 0.643
+- P(No) = 0.357
+
+💡 INSIGHTS:
+- Overcast → 100% chơi tennis (P(Overcast|No) = 0)
+- High Humidity → thiên về không chơi (P(High|No) = 0.8)
+- Weak Wind → thiên về chơi (P(Weak|Yes) = 0.667)
+- Model accuracy trên training data: ~93% (13/14 correct)
+
+🔮 LUẬT DỰ ĐOÁN MẠNH:
+1. IF Outlook = Overcast → Chắc chắn Play = Yes
+2. IF Humidity = High AND Outlook = Sunny → Thiên về Play = No
+3. IF Wind = Weak AND Humidity = Normal → Thiên về Play = Yes
+```
+
 **Gaussian Naive Bayes:**
 
 ```
@@ -685,20 +1073,26 @@ Như việc chia học sinh thành các nhóm dựa trên điểm số!
 3. **📍 Di chuyển tâm về giữa nhóm**
 4. **🔄 Lặp lại** cho đến khi ổn định
 
-### Minh họa trực quan:
+### Minh họa trực quan với dữ liệu tranh:
 
 ```
-Bước 1: Tâm ngẫu nhiên        Bước 2: Gán nhóm
-   *     •  •                   *●●   ○ ○
- •   •     •                  ●   ●   ○ ○
-   •   *     • •                ●   *○   ○ ○
-     •   •  *                    ●   ○○  *○
+**🔸 Sử dụng dữ liệu từ file `data_k-means_kohonen.csv`:**
 
-Bước 3: Di chuyển tâm          Kết quả cuối:
-   *●●   ○ ○                    *●●   ○ ○
- ●   ●   ○ ○                  ●   ●   ○ ○
-   ●   *○   ○ ○                 ●   *○   ○ ○
-     ●   ○○  *○                   ●   ○○  *○
+Initial data: Các bức tranh với đặc trưng [Màu, Nét, Khối]
+
+Bước 1: Random centroids     Bước 2: Assign to clusters
+    T1[16,124,19]  •••          C1{T1,T2,T3,T5} • • •
+  •  T2[6,13,70]    •             •           ○
+T3[10,22,59] •    T5[21,97,23]    •   C2{T4,T6} ○ ○
+    • T4[5,81,92]  •              •           ○
+      T6[7,94,88] •                            ○
+
+Bước 3: Update centroids     Final result:
+  C1_new[13.25,64,37.75] •       "Abstract Art" • • •
+     •         •                      •
+     •   C2_new[6,87.5,90] ○           •
+     •         ○               "Geometric Art" ○ ○
+               ○                              ○
 ```
 
 ## 🔬 Phiên bản TECHNICAL
@@ -747,65 +1141,132 @@ def kmeans(X, k, max_iters=100):
 
 #### Bước 1: Chuẩn bị và chuẩn hóa dữ liệu
 
-```python
-# Dữ liệu gốc
-data = [[25, 30000], [30, 45000], [35, 55000], [22, 25000]]
+**🔸 Ví dụ thực tế từ file `data_k-means_kohonen.csv` (Art Dataset):**
 
-# Chuẩn hóa bằng MinMaxScaler
-scaled_data = [[0.0, 0.0], [0.38, 0.67], [1.0, 1.0], [0.0, 0.0]]
+```python
+# Dữ liệu gốc - Phân tích các bức tranh qua 3 đặc trưng
+Original Data:
+ID | Số màu | Số đường nét | Số hình khối
+1  | 16     | 124         | 19
+2  | 6      | 13          | 70
+3  | 10     | 22          | 59
+4  | 5      | 81          | 92
+5  | 21     | 97          | 23
+6  | 7      | 94          | 88
+
+# Chuẩn hóa bằng MinMaxScaler (0-1)
+Scaled Data:
+ID | Số màu | Số đường nét | Số hình khối
+1  | 0.688  | 1.000       | 0.000
+2  | 0.063  | 0.000       | 0.699
+3  | 0.313  | 0.081       | 0.562
+4  | 0.000  | 0.611       | 1.000
+5  | 1.000  | 0.757       | 0.055
+6  | 0.125  | 0.729       | 0.945
 ```
 
 #### Bước 2: Khởi tạo K centroids ngẫu nhiên
 
 ```python
-K = 3
-centroids = [[0.2, 0.3], [0.6, 0.8], [0.9, 0.1]]  # Random positions
+K = 2  # Chia tranh thành 2 nhóm phong cách
+# Initial centroids (random)
+C1 = [0.4, 0.5, 0.3]  # Centroid 1
+C2 = [0.8, 0.2, 0.7]  # Centroid 2
 ```
 
-#### Bước 3: Assignment Step
+#### Bước 3: Assignment Step (Iteration 1)
 
 ```python
-# Tính khoảng cách từ mỗi điểm đến centroids
-for each point:
-    distances = [euclidean(point, centroid) for centroid in centroids]
-    assign point to closest centroid
+# Tính khoảng cách Euclidean từ mỗi tranh đến centroids
 
-# Kết quả iteration 1:
-Cluster 0: [point1, point4]
-Cluster 1: [point2]
-Cluster 2: [point3]
+Tranh 1: [0.688, 1.000, 0.000]
+- dist_to_C1 = √[(0.688-0.4)² + (1.0-0.5)² + (0.0-0.3)²] = 0.625
+- dist_to_C2 = √[(0.688-0.8)² + (1.0-0.2)² + (0.0-0.7)²] = 1.081
+→ Assign to Cluster 1
+
+Tranh 2: [0.063, 0.000, 0.699]
+- dist_to_C1 = √[(0.063-0.4)² + (0.0-0.5)² + (0.699-0.3)²] = 0.694
+- dist_to_C2 = √[(0.063-0.8)² + (0.0-0.2)² + (0.699-0.7)²] = 0.762
+→ Assign to Cluster 1
+
+Tranh 3: [0.313, 0.081, 0.562]
+- dist_to_C1 = √[(0.313-0.4)² + (0.081-0.5)² + (0.562-0.3)²] = 0.511
+- dist_to_C2 = √[(0.313-0.8)² + (0.081-0.2)² + (0.562-0.7)²] = 0.550
+→ Assign to Cluster 1
+
+# Kết quả Iteration 1:
+Cluster 1: [Tranh 1, 2, 3, 4, 5]
+Cluster 2: [Tranh 6]
 ```
 
-#### Bước 4: Update Step
+#### Bước 4: Update Step (Iteration 1)
 
 ```python
 # Tính centroid mới = trung bình của các điểm trong cluster
-new_centroids = []
-for cluster in clusters:
-    new_centroid = mean(cluster_points)
-    new_centroids.append(new_centroid)
 
-# New centroids: [[0.1, 0.1], [0.38, 0.67], [1.0, 1.0]]
+Cluster 1 (Tranh 1,2,3,4,5):
+new_C1 = mean([[0.688,1.000,0.000], [0.063,0.000,0.699],
+               [0.313,0.081,0.562], [0.000,0.611,1.000],
+               [1.000,0.757,0.055]])
+new_C1 = [0.413, 0.490, 0.463]
+
+Cluster 2 (Tranh 6):
+new_C2 = [0.125, 0.729, 0.945]
 ```
 
-#### Bước 5: Kiểm tra hội tụ
+#### Bước 5: Assignment Step (Iteration 2)
 
 ```python
-# Nếu centroids không thay đổi đáng kể → Dừng
-# Ngược lại → Lặp lại Bước 3 và 4
+# Dùng centroids mới để gán lại
 
-convergence_threshold = 0.001
-if max(distance(old_centroid, new_centroid)) < threshold:
-    break
+Với new_C1=[0.413, 0.490, 0.463], new_C2=[0.125, 0.729, 0.945]:
+
+Tranh 4: [0.000, 0.611, 1.000]
+- dist_to_new_C1 = 0.605
+- dist_to_new_C2 = 0.150
+→ Reassign to Cluster 2!
+
+# Kết quả Iteration 2:
+Cluster 1: [Tranh 1, 2, 3, 5]
+Cluster 2: [Tranh 4, 6]
 ```
 
-#### Bước 6: Tính WCSS (Within-Cluster Sum of Squares)
+#### Bước 6: Update Step (Iteration 2)
 
 ```python
-wcss = 0
-for cluster in clusters:
-    for point in cluster:
-        wcss += euclidean_distance(point, cluster_centroid)**2
+# Update centroids again
+final_C1 = [0.516, 0.460, 0.329]  # Mean of Tranh 1,2,3,5
+final_C2 = [0.063, 0.670, 0.973]  # Mean of Tranh 4,6
+
+# Kiểm tra hội tụ - centroids thay đổi < threshold → STOP
+```
+
+### 🎯 **KẾT QUẢ CUỐI CÙNG K-MEANS:**
+
+```
+📊 PHÂN CỤM TRANH NGHỆ THUẬT (K=2):
+
+🎨 CLUSTER 1 - "Tranh phức tạp, nhiều màu":
+- Tranh 1: [16 màu, 124 nét, 19 khối] → Phong cách phức tạp
+- Tranh 2: [6 màu, 13 nét, 70 khối] → Tối giản nhưng nhiều khối
+- Tranh 3: [10 màu, 22 nét, 59 khối] → Cân bằng
+- Tranh 5: [21 màu, 97 nét, 23 khối] → Rất nhiều màu và nét
+
+🖼️ CLUSTER 2 - "Tranh đơn giản, ít màu":
+- Tranh 4: [5 màu, 81 nét, 92 khối] → Ít màu nhưng nhiều hình khối
+- Tranh 6: [7 màu, 94 nét, 88 khối] → Tương tự tranh 4
+
+📈 CENTROIDS CUỐI CÙNG:
+- Cluster 1: [0.516, 0.460, 0.329] (Nhiều màu, ít khối)
+- Cluster 2: [0.063, 0.670, 0.973] (Ít màu, nhiều khối)
+
+📊 WCSS = 0.847 (tổng độ lệch trong cluster)
+
+💡 INSIGHTS:
+- Tranh được nhóm chủ yếu theo số lượng hình khối
+- Cluster 1: Tập trung vào sự đa dạng màu sắc và đường nét
+- Cluster 2: Tập trung vào hình khối, ít quan tâm màu sắc
+- Có thể mô tả như "Abstract Art" vs "Geometric Art"
 ```
 
 ### Cách chọn K:
